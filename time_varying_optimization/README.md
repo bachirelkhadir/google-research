@@ -143,18 +143,28 @@ prob.solve(solver=cvxpy.SCS, verbose=True)
 ## A handwrinting example
 
 ### create and activate python environment
+```sh
+
 conda create --name tvsdp python=3
 source activate tvsdp
 
+```
+
 ### install packages
+
+```sh
+
 conda install numpy pandas sympy scipy matplotlib
 conda install -c conda-forge lapack
 conda install -c cvxgrp cvxpy
 conda install -c mosek mosek
+```
 
 ### Sample run
-python learn_vectorfield_from_data.py --dataset="lasa_dataset/CShape.mat" --matlab_export_file="matlab_code.m"
+```sh
 
+python learn_vectorfield_from_data.py --dataset="lasa_dataset/CShape.mat" --matlab_export_file="matlab_code.m"
+```
 
 [paper_location]: https://arxiv.org/pdf/1808.03994.pdf
 [schur]: https://en.wikipedia.org/wiki/Schur_complement
