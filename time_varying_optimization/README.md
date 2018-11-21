@@ -163,8 +163,18 @@ conda install -c mosek mosek
 ### Sample run
 ```sh
 
-python learn_vectorfield_from_data.py --dataset="lasa_dataset/CShape.mat" --matlab_export_file="matlab_code.m"
+
+python learn_vectorfield_from_data.py --dataset="lasa_dataset/CShape.mat" --matlab_export_file="matlab_code.m" --deg_p=2 --deg_f=2 --alpha_p=1e-2 --alpha_f=1e-2 --tau=0.1
 ```
+
+The script starts by fitting a polynomial p(t) of degree deg_p to the data by minimizing the following objective:
+tracking error + alpha * norm(p)
+
+Then it fits a `tau`-contracting vectorfield f(x) of degree `deg_f` by minimizing the following objective:
+tracking error + alpha * norm(f)
+
+The script then produces a matlab file called `matlab_export_file` containing a matlab function in the format you asked for.
+
 
 [paper_location]: https://arxiv.org/pdf/1808.03994.pdf
 [schur]: https://en.wikipedia.org/wiki/Schur_complement

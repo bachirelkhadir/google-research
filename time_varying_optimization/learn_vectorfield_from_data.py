@@ -1,4 +1,18 @@
-# Sample run: python learn_vectorfield_from_data.py --dataset="lasa_dataset/CShape.mat" --matlab_export_file="matlab_code.m"
+"""Script to learn a vector field from dataset.
+
+
+python learn_vectorfield_from_data.py --dataset="lasa_dataset/CShape.mat" --matlab_export_file="matlab_code.m" --deg_p=2 --deg_f=2 --alpha_p=1e-2 --alpha_f=1e-2 --tau=0.1
+
+The script starts by fitting a polynomial p(t) of degree deg_p to the data by minimizing the following objective:
+tracking error + alpha * norm(p)
+
+Then it fits a `tau`-contracting vectorfield f(x) of degree `deg_f` by minimizing the following objective:
+tracking error + alpha * norm(f)
+
+Finally, the script produces a matlab file called `matlab_export_file` containing a matlab function in the format you asked for.
+
+"""
+
 
 import argparse
 import logging
@@ -78,12 +92,8 @@ def fit_polynomial_to_data(t, x, deg_p, alpha=1e-3):
 
 
 def fit_vectorfield_to_poly_path(coefficients_p, params):
-    # dim = len(coefficients_p)
-    # logging.debug('Dimension = %d', dim)
     learning_fct = learning_contracting_polynomials.learn_polynomial_vf_with_contraction
     opt_value, opt_vf = learning_fct(coefficients_p, **params)
-    # sym_x = sympy.symbols('x_0:%d' % dim)
-    # vector_field_f = lambdify(sym_x, opt_vf)
     return opt_value, opt_vf
 
 
