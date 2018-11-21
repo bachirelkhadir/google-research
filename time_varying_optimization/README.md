@@ -173,7 +173,7 @@ tracking error + alpha * norm(p)
 Then it fits a `tau`-contracting vectorfield f(x) of degree `deg_f` by minimizing the following objective:
 tracking error + alpha * norm(f)
 
-The script then produces a matlab file called `matlab_export_file` containing a matlab function in the format you asked for.
+The script then produces a matlab file called `matlab_export_file` containing a matlab description of the resulting vector field.
 
 
 [paper_location]: https://arxiv.org/pdf/1808.03994.pdf
