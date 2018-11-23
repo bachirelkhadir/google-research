@@ -121,18 +121,9 @@ end
     return code
 
 
-def main():
-    args = parse_arguments()
-    dataset = args.dataset
-    deg_p = args.deg_p
-    deg_f = args.deg_f
-    alpha_p = args.alpha_p
-    alpha_f = args.alpha_f
-    tau = float(args.tau) if args.tau else None
-
+def learn_and_output(dataset, matlab_export_file, deg_p, deg_f, alpha_p, alpha_f, tau, ):
     msg = 'Fitting a polynomial of degree {deg_p} to {dataset} and learning a vectorfield of degree {deg_f} with tau = {tau}, alpha_p={alpha_p}, alpha_f={alpha_f}.'.format(**locals())
     print(msg)
-
     step = 10
 
     t, real_path = load_data(dataset)
@@ -157,17 +148,26 @@ def main():
     print('Optimal value: %.2f' % opt_value)
     print('Optimal vectorfield f(x_0, x_1) = %s' % opt_vf)
 
-    if args.matlab_export_file:
+    if matlab_export_file:
         print('Generating matlab code.')
-        function_name = os.path.basename(args.matlab_export_file)[:-2]
+        function_name = os.path.basename(matlab_export_file)[:-2]
         code = export_vf_to_matlab_function(function_name,
                                             opt_vf, 
                                             scale, 
                                             translation,
                                             msg)
-        print('Wrinting matlab code to', args.matlab_export_file)
-        open(args.matlab_export_file, 'w').write(code)
+        print('Wrinting matlab code to', matlab_export_file)
+        open(matlab_export_file, 'w').write(code)
 
 
 if __name__ =='__main__':
-    main()
+    args = parse_arguments()
+    dataset = args.dataset
+    matlab_export_file = args.matlab_export_file
+    deg_p = args.deg_p
+    deg_f = args.deg_f
+    alpha_p = args.alpha_p
+    alpha_f = args.alpha_f
+    tau = float(args.tau) if args.tau else None
+    
+    learn_and_output(dataset, deg_p, deg_f, alpha_p, alpha_f, tau)
