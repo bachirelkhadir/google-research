@@ -20,6 +20,7 @@ import learning_contracting_polynomials
 import polynomial_tools
 from sympy import octave_code
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 import scipy.io as sio
 
@@ -55,11 +56,18 @@ def parse_arguments():
         type=float,
         default=1e-4,
         help='Regularization coefficients for fitting f(x).')
+    
     parser.add_argument(
         '--tau',
         type=str,
         default=None,
         help='Amount of contraction (None for no contraction).')
+
+    parser.add_argument(
+        '--make_zero_at_end',
+        type=bool,
+        default=True,
+        help='Import the constraint f(p(T)) = 0.')
 
     parser.add_argument(
         '--matlab_export_file',
@@ -76,14 +84,13 @@ def load_data(data_file):
 
     x, t, x_dot, x_acc, dt  = map(lambda u: u, demos[0][0][0])
     t = t[0]
-    t /= t[-1]
     x = x
     return t, x
 
 
-def fit_polynomial_to_data(t, x, deg_p, alpha=1e-3):
+def fit_polynomial_to_data(t, x, deg_p, alpha=1e-3, verbose=False):
     poly_fit_fct = polynomial_tools.fit_polynomial_with_regularization
-    coefficients_p = [poly_fit_fct(t, xi, deg=deg_p, alpha=1e-3)
+    coefficients_p = [poly_fit_fct(t, xi, deg=deg_p, alpha=1e-3, verbose=verbose)
                       for xi in x]
 
     logging.debug('Coefficients of polynomial fit: %s',
@@ -97,11 +104,12 @@ def fit_vectorfield_to_poly_path(coefficients_p, params):
     return opt_value, opt_vf
 
 
-def export_vf_to_matlab_function(function_name, vf, scale, translation, header=''):
+def export_vf_to_matlab_function(function_name, vf, scale, time_scale, translation, header=''):
     template_code = """
 % {header}
 function Xdot = {function_name}(X)
     scale = {scale};
+    time_scale = {time_scale}
     translation = {translation};
     x_0 = (X(:, 1) - translation(1)) / scale;
     x_1 = (X(:, 2) - translation(2)) / scale;
@@ -109,10 +117,11 @@ function Xdot = {function_name}(X)
     fx_0 = {fx_0};
     fx_1 = {fx_1};
 
-    Xdot = [fx_0 fx_1] * scale;
+    Xdot = [fx_0 fx_1] * scale * time_scale;
 end
 """
     code = template_code.format(scale=scale,
+                                time_scale=time_scale,
                                 translation=translation,
                                 fx_0=octave_code(vf[0]),
                                 fx_1=octave_code(vf[1]),
@@ -121,13 +130,15 @@ end
     return code
 
 
-def learn_and_output(dataset, matlab_export_file, deg_p, deg_f, alpha_p, alpha_f, tau, ):
-    msg = 'Fitting a polynomial of degree {deg_p} to {dataset} and learning a vectorfield of degree {deg_f} with tau = {tau}, alpha_p={alpha_p}, alpha_f={alpha_f}.'.format(**locals())
+def learn_and_output(dataset, matlab_export_file, deg_p, deg_f, 
+                     alpha_p, alpha_f, tau, make_zero_at_end):
+    msg = 'Fitting a polynomial of degree {deg_p} to {dataset} and learning a vectorfield of degree {deg_f} with tau = {tau}, alpha_p={alpha_p}, alpha_f={alpha_f}. make_zero_at_end={make_zero_at_end}'.format(**locals())
     print(msg)
     step = 10
 
     t, real_path = load_data(dataset)
-    t = t[::step]
+    time_scale = t[-1]
+    t = t[::step] / time_scale
     real_path = real_path[:, ::step]
 
     scale = 1000.
@@ -135,12 +146,16 @@ def learn_and_output(dataset, matlab_export_file, deg_p, deg_f, alpha_p, alpha_f
 
     scaled_path = (real_path - translation[:, None]) / scale
 
-    p = fit_polynomial_to_data(t, scaled_path, deg_p=deg_p, alpha=alpha_p)
+    verbose = logging.getLogger().getEffectiveLevel() <= logging.INFO
+
+    p = fit_polynomial_to_data(t, scaled_path, deg_p=deg_p, alpha=alpha_p,
+                               verbose=verbose)
+    
     params = {
         "deg": deg_f,
         "tau": .1,
         "alpha": alpha_f,
-        "make_zero_at_end_demo": True,
+        "make_zero_at_end_demo": make_zero_at_end,
         "verbose": False
     }
 
@@ -153,13 +168,31 @@ def learn_and_output(dataset, matlab_export_file, deg_p, deg_f, alpha_p, alpha_f
         function_name = os.path.basename(matlab_export_file)[:-2]
         code = export_vf_to_matlab_function(function_name,
                                             opt_vf, 
-                                            scale, 
+                                            scale,
+                                            time_scale, 
                                             translation,
                                             msg)
         print('Wrinting matlab code to', matlab_export_file)
         open(matlab_export_file, 'w').write(code)
+        
+    return (opt_value, opt_vf)
 
 
+def visualize_vf(f, limits=[-.1, .1, -.1, .1]):
+    nx, ny = 100, 100
+    xx = np.linspace(*limits[:2], nx)
+    yy = np.linspace(*limits[2:], ny)
+    X, Y = np.meshgrid(xx, yy)
+    XY = np.array([X.flatten(), Y.flatten()]).T
+    fXY = f(XY)
+    Ex, Ey = fXY[:, 0], fXY[:, 1]
+    Ex, Ey = Ex.reshape(nx, ny), Ey.reshape(nx, ny)
+    plt.streamplot(xx, yy, Ex, Ey,linewidth=1, cmap=plt.cm.inferno,
+              density=2, arrowstyle='->', arrowsize=1.5)
+    plt.xlim(limits[:2])
+    plt.ylim(limits[2:])
+    
+    
 if __name__ =='__main__':
     args = parse_arguments()
     dataset = args.dataset
@@ -168,6 +201,7 @@ if __name__ =='__main__':
     deg_f = args.deg_f
     alpha_p = args.alpha_p
     alpha_f = args.alpha_f
+    make_zero_at_end = args.make_zero_at_end
     tau = float(args.tau) if args.tau else None
     
-    learn_and_output(dataset, deg_p, deg_f, alpha_p, alpha_f, tau)
+    learn_and_output(dataset, deg_p, deg_f, alpha_p, alpha_f, tau, make_zero_at_end)

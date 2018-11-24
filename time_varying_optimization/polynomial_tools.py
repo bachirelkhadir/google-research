@@ -8,7 +8,7 @@ def integ_poly_0_1(p):
   return np.array(p).dot(1 / np.linspace(1, len(p), len(p)))
 
 
-def fit_polynomial_with_regularization(x, y, deg=3, alpha=.01):
+def fit_polynomial_with_regularization(x, y, deg=3, alpha=.01, verbose=False):
   """Fits a polynomial  to data `(x, y)`.
   
   Finds a polynomial `p` that minimizes the fitting error 
@@ -44,7 +44,7 @@ def fit_polynomial_with_regularization(x, y, deg=3, alpha=.01):
     
   min_loss = cvxpy.Minimize(fitting_value + regularizer)
   prob = cvxpy.Problem(min_loss)
-  prob.solve(verbose=True, solver=cvxpy.MOSEK)
+  prob.solve(verbose=verbose, solver=cvxpy.MOSEK)
 
   return np.array(p.value).squeeze()
 
