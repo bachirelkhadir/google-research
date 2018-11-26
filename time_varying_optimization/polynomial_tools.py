@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import cvxpy
 
@@ -8,16 +9,17 @@ def integ_poly_0_1(p):
   return np.array(p).dot(1 / np.linspace(1, len(p), len(p)))
 
 
-def fit_polynomial_with_regularization(x, y, deg=3, alpha=.01, verbose=False):
+def fit_polynomial_with_regularization(x, y, dy=None, deg=3, alpha=.01, verbose=False):
   """Fits a polynomial  to data `(x, y)`.
   
   Finds a polynomial `p` that minimizes the fitting error 
-  |y - p(x)|_2 + alpha |p|_2,
+  |y - p(x)|_2 + |dy - p'(x)|_2 + alpha |p|_2,
   where p(x) = sum_i p_i x^i.
   
   Args:
     x: [N] ndarray of  input data. Must be increasing.
     y: [N] ndarray, same size as `x`.
+    dy: [N] ndarray, same size as `x`
     deg: int, degree of each polynomial piece of `p`.
     alpha: float, Regularizer.
 
@@ -25,6 +27,8 @@ def fit_polynomial_with_regularization(x, y, deg=3, alpha=.01, verbose=False):
      [deg+1] ndarray representing the polynomial `p`.
      
   """
+
+  logging.info('Fitting polynomial to %d data points', len(x))
 
   # coefficients of the polynomial of p.
   p = cvxpy.Variable(deg+1, name='p')
@@ -34,18 +38,29 @@ def fit_polynomial_with_regularization(x, y, deg=3, alpha=.01, verbose=False):
 
   regularizer = alpha * cvxpy.norm(p, 1)
 
-  # compute p(px)
+  # compute p(x)
   px = eval_poly_from_coefficients(numpy_p, x)
+  
+  # compute dp(x)
+  deriv_coefficients = np.array(list(range(deg+1)))
+  numpy_dp = (deriv_coefficients * numpy_p)[1:]
+  dpx = eval_poly_from_coefficients(numpy_dp, x)
 
+                                    
   # fitting value of the current part of p,
   # equal to sqrt(sum |p(x_i) - y_i|^2), where the sum
   # is over data (x_i, y_i) in the current piece.
   fitting_value = cvxpy.norm(cvxpy.vstack(px - y), 1)
+  
+  if dy is not None:
+    logging.info('Fitting derivative as well')
+    fitting_value = fitting_value + cvxpy.norm(cvxpy.vstack(dpx - dy), 1)
     
   min_loss = cvxpy.Minimize(fitting_value + regularizer)
   prob = cvxpy.Problem(min_loss)
   prob.solve(verbose=verbose, solver=cvxpy.MOSEK)
-
+  logging.info('Polynomial fit: %.2f', min_loss.value)
+    
   return np.array(p.value).squeeze()
 
 

@@ -85,13 +85,13 @@ def load_data(data_file):
     x, t, x_dot, x_acc, dt  = map(lambda u: u, demos[0][0][0])
     t = t[0]
     x = x
-    return t, x
+    return t, x, x_dot
 
 
-def fit_polynomial_to_data(t, x, deg_p, alpha=1e-3, verbose=False):
+def fit_polynomial_to_data(t, x, dx, deg_p, alpha=1e-3, verbose=False):
     poly_fit_fct = polynomial_tools.fit_polynomial_with_regularization
-    coefficients_p = [poly_fit_fct(t, xi, deg=deg_p, alpha=1e-3, verbose=verbose)
-                      for xi in x]
+    coefficients_p = [poly_fit_fct(t, xi, dxi, deg=deg_p, alpha=alpha, verbose=verbose)
+                      for xi, dxi in zip(x, dx)]
 
     logging.debug('Coefficients of polynomial fit: %s',
                   coefficients_p)
@@ -109,7 +109,7 @@ def export_vf_to_matlab_function(function_name, vf, scale, time_scale, translati
 % {header}
 function Xdot = {function_name}(X)
     scale = {scale};
-    time_scale = {time_scale}
+    time_scale = {time_scale};
     translation = {translation};
     x_0 = (X(:, 1) - translation(1)) / scale;
     x_1 = (X(:, 2) - translation(2)) / scale;
@@ -117,7 +117,7 @@ function Xdot = {function_name}(X)
     fx_0 = {fx_0};
     fx_1 = {fx_1};
 
-    Xdot = [fx_0 fx_1] * scale * time_scale;
+    Xdot = [fx_0 fx_1] * scale / time_scale;
 end
 """
     code = template_code.format(scale=scale,
@@ -136,19 +136,22 @@ def learn_and_output(dataset, matlab_export_file, deg_p, deg_f,
     print(msg)
     step = 10
 
-    t, real_path = load_data(dataset)
+    t, real_path, real_path_dot = load_data(dataset)
     time_scale = t[-1]
     t = t[::step] / time_scale
     real_path = real_path[:, ::step]
-
+    real_path_dot = real_path_dot[:, ::step]
+    
     scale = 1000.
     translation = np.mean(real_path, axis=1)
 
     scaled_path = (real_path - translation[:, None]) / scale
-
+    scaled_path_dot = real_path_dot / scale * time_scale
+    
     verbose = logging.getLogger().getEffectiveLevel() <= logging.INFO
 
-    p = fit_polynomial_to_data(t, scaled_path, deg_p=deg_p, alpha=alpha_p,
+    p = fit_polynomial_to_data(t, scaled_path, scaled_path_dot, 
+                               deg_p=deg_p, alpha=alpha_p,
                                verbose=verbose)
     
     params = {
